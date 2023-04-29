@@ -11,15 +11,15 @@ def generate_launch_description():
     # Set the path to different files and folders.
     pkg_gazebo_ros = FindPackageShare(package='gazebo_ros').find('gazebo_ros')   
     pkg_share = FindPackageShare(package='mobile_bot').find('mobile_bot')
-    default_model_path = os.path.join(pkg_share, 'models/mobile_bot_model_urdf/model.urdf')
+    default_model_path = os.path.join(pkg_share, 'models/mobile_bot_model/model.urdf')
     default_rviz_config_path = os.path.join(pkg_share, 'rviz/config.rviz')
     world_file_name = 'small_town/small_town.world'
     world_path = os.path.join(pkg_share, 'worlds', world_file_name)
     
     # Launch configuration variables specific to simulation
     headless = LaunchConfiguration('headless')
-    model = LaunchConfiguration('model')
     rviz_config_file = LaunchConfiguration('rviz_config_file')
+    use_joint_state_pub = LaunchConfiguration('use_joint_state_pub')
     use_robot_state_pub = LaunchConfiguration('use_robot_state_pub')
     use_rviz = LaunchConfiguration('use_rviz')
     use_sim_time = LaunchConfiguration('use_sim_time')
@@ -41,6 +41,11 @@ def generate_launch_description():
         name='headless',
         default_value='False',
         description='Whether to execute gzclient')
+
+    declare_use_joint_state_publisher_cmd = DeclareLaunchArgument(
+        name='use_joint_state_pub',
+        default_value='True',
+        description='Flag to enable joint_state_publisher')
 
     declare_use_robot_state_pub_cmd = DeclareLaunchArgument(
         name='use_robot_state_pub',
@@ -80,13 +85,19 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(pkg_gazebo_ros, 'launch', 'gzclient.launch.py')),
         condition=IfCondition(PythonExpression([use_simulator, ' and not ', headless])))
 
+    # Publish the joint state values for the non-fixed joints in the URDF file.
+    start_joint_state_publisher_cmd = Node(
+        condition=IfCondition(use_joint_state_pub),
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher')
+
     # Subscribe to the joint states of the robot, and publish the 3D pose of each link.
     start_robot_state_publisher_cmd = Node(
         condition=IfCondition(use_robot_state_pub),
         package='robot_state_publisher',
         executable='robot_state_publisher',
-        parameters=[{'use_sim_time': use_sim_time, 
-        'robot_description': Command(['xacro ', model])}],
+        parameters=[{'use_sim_time': use_sim_time}],
         arguments=[default_model_path])
 
     # Launch RViz
@@ -105,6 +116,7 @@ def generate_launch_description():
     ld.add_action(declare_model_path_cmd)
     ld.add_action(declare_rviz_config_file_cmd)
     ld.add_action(declare_simulator_cmd)
+    ld.add_action(declare_use_joint_state_publisher_cmd)
     ld.add_action(declare_use_robot_state_pub_cmd)  
     ld.add_action(declare_use_rviz_cmd) 
     ld.add_action(declare_use_sim_time_cmd)
@@ -114,6 +126,7 @@ def generate_launch_description():
     # Add any actions
     ld.add_action(start_gazebo_server_cmd)
     ld.add_action(start_gazebo_client_cmd)
+    ld.add_action(start_joint_state_publisher_cmd)
     ld.add_action(start_robot_state_publisher_cmd)
     ld.add_action(start_rviz_cmd)
 

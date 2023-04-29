@@ -10,7 +10,7 @@ def generate_launch_description():
 
     # Set the path to different files and folders.
     pkg_share = FindPackageShare(package='mobile_bot').find('mobile_bot')
-    default_model_path = os.path.join(pkg_share, 'models/mobile_bot_model_urdf/model.urdf')
+    default_model_path = os.path.join(pkg_share, 'models/mobile_bot_model/model.urdf')
     default_rviz_config_path = os.path.join(pkg_share, 'rviz/config.rviz')
     
     # Launch configuration variables specific to simulation
