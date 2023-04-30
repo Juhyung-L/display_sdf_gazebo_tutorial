@@ -16,8 +16,7 @@ Note: RViz uses urdf files and Gazebo uses sdf files to describe a robot model. 
 
 # Explanation of the plugins and packges used
 **Differential drive plugin:**  
-This plugin simulates the encoders on the two wheels of the robot.
-The plugin subscribes to the /cmd_vel topic, which has velocity information published by rqt_robot_steering, and publishes odometry information to the /wheel/odometry topic and it also moves the robot on Gazebo.  
+This plugin simulates the encoders on the two wheels of the robot. It takes in geometry_msgs?Twist published on the /cmd_vel topic and publishes nav_msgs/Odometry on the /odom topic. So basically, it converts the robot's velocity into wheel encoder readings.
 
 **Imu plugin:**  
 This plugin is added to simulate an imu attached to the robot. It will be used in later tutorials along with wheel odometry information to get a smoothed odometry information of the robot.  
