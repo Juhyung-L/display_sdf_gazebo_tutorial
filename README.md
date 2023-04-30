@@ -7,19 +7,16 @@ Required ROS2 packages
 - joint-state-publisher
 - xacro
 
-This is a continuation from the repository display_urdf_rviz_tutorial
+This is a continuation from the repository display_urdf_rviz
 
 # Background
-The ultimate goal of this tutorial is to 
+The ultimate goal of this project is to set up a robot in Gazebo simulation and publish its odometry information. The differential drive and imu plugins are used to simulate the wheel encoder and imu sensor, which are commonly used to calculate odometry. The measurements from these two sensors are fed into the robot_localization package to produce a smoothed odometry information.
 
 Note: RViz uses urdf files and Gazebo uses sdf files to describe a robot model. However, urdf files can be used for Gazebo, which is what is done in this tutorial.  
 
-
-# Plugins and packges used
+# Explanation of the plugins and packges used
 **Differential drive plugin:**  
-To simulate the robot moving with its two wheels, the differential drive plugin was used.  
-The plugin is added by adding these lines to the sdf file.
-
+This plugin simulates the encoders on the two wheels of the robot.
 The plugin subscribes to the /cmd_vel topic, which has velocity information published by rqt_robot_steering, and publishes odometry information to the /wheel/odometry topic and it also moves the robot on Gazebo.  
 
 **Imu plugin:**  
