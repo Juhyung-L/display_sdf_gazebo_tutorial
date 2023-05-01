@@ -1,117 +1,88 @@
-All files in this repository came from https://navigation.ros.org/setup_guides/urdf/setup_urdf.html  
-The purpose of this repository is to write down notes while learning ROS2.
+All files came from:  
+https://navigation.ros.org/setup_guides/odom/setup_odom.html  
+The purpose of this repository is to write down notes while learning ROS2.  
 
 Required ROS2 packages
 - robot-state-publisher
 - joint-state-publisher
-- joint-state-publisher-gui
 - xacro
 
+This is a continuation from the repository display_urdf_rviz
+
 # Background
-A .urdf file represents a robot model using joints and links.
-- Links: the rigid skeleton of the robot
-- Joints: joins the links together
+The ultimate goal of this project is to set up a robot in Gazebo simulation and publish its odometry information. The differential drive and imu plugins are used to simulate the wheel encoder and imu sensor, which are commonly used to calculate odometry. The measurements from these two sensors are fed into the robot_localization package to produce a smoothed odometry information.
 
-# Creating a ROS2 package
-Make a folder and a folder named source in it.  
-***mkdir ~/dev_ws/src***  
-***cd ~/dev_ws/src***  
-***ros2 pkg create --build-type ament_cmake mobile_bot***  
-- This will make a folder named mobile_robot inside the src folder
-- This folder will have
-  - CMakeLists.txt
-  - package.xml
-  - include folder
-  - src folder
+Note: RViz uses urdf files and Gazebo uses sdf files to describe a robot model. However, urdf files can be used for Gazebo, which is what is done in this tutorial.  
 
-Then make launch, models, and rviz folders inside the package.  
-***cd ~/dev_ws/src/mobile_bot***  
-***mkdir launch models rviz***  
-- launch folder will have the launch script in Python
-- rviz folder will have the rviz launch file
-- models folder will have the .urdf file of the robot model
+# Explanation of the plugins and packges used
+**Differential drive plugin:**  
+This plugin simulates the odometry calculations for a two-wheeled robot. For a two-wheeled robot with wheel encoders, the odometry information (linear and angular velocity of the robot) would be calculated using the formula:  
+![image](https://user-images.githubusercontent.com/102873080/235415384-30234f02-da1a-4eac-aa85-c2c84b34ef9c.png)  
+The differential drive plugin does simulates this calculation by subscribing to the /demo/cmd_vel topic and publishing to the /demo/odom topic.  
+The exact message published on the /demo/odom topic is:  
+![image](https://user-images.githubusercontent.com/102873080/235417061-fcad4831-3ad2-43b5-9883-e5cb1c092cd2.png)  
+The plugin can be added by adding the following lines to the urdf file.  
+<add code>
+Note that /<publish_wheel_tf> is set to false. The code snippet provided by the official Nav2 tutorial has this set to true. This will publish the base_link to wheel transform to the tf2 topic. However, the robot state publisher already provides that information. So, setting the option to true will have two nodes (differential drive plugin and robot_state_publisher package) publishing the same information to the /tf topic, which will result in an warning saying that the data from one of the two sources will be ignored.  
 
-Go to the root directory of the package and build.  
-***cd ~/dev_ws***  
-***colcon build***  
+**Imu plugin:**  
+Imu sensors in real life measures the the linear and angular velocity and acceleration of the robot using its accelerometer and gyroscope. The imu sensor plugin added to the robot simulates this by providing the same information on the /demo/imu topic.  
+The exact message published on the /demo/imu topic:  
+![image](https://user-images.githubusercontent.com/102873080/235417222-ef8c4b88-e751-457c-be6f-d6da89a8315f.png)  
+- It provides orientation, angular velocity, and linear acceleration.
+- There is noise added to the data to best imitate imu measurements in real life.
 
-# Make the .urdf file
-Go to the models folder and make a mobile_bot_model.urdf file  
-***cd ~/dev_ws/src/mobile_bot/models***  
-***gedit mobile_bot_model.urdf***  
+The plugin can be added by adding the following lines to the urdf file.
+<add code>
 
-https://github.com/Juhyung-L/display_urdf_rviz_tutorial/blob/953928196113ce88a06cc991bceaef9e26573014/models/mobile_bot_model.urdf#L4-L15
-- Using xacro to define constants that will be reused throughout the file
+**joint-state-publisher package:**  
+The joint-state-publisher publishes the state (position and velocity) of all the **NON-FIXED** joints in a robot model provided by a urdf file. The information is published to the /joint_state topic.  
+![image](https://user-images.githubusercontent.com/102873080/235418386-10c632fd-c202-4735-9243-31e073273610.png)  
+This is the data published on the /joint_states topic for the robot model in this tutorial. Only the states of drivewhl_l_joint and drivewhl_r_joint are published because they are the only joints that aren't fixed (they are revolute joints). The position data shows the angular orientation of the joints because they are revolute joints and it matches the joint-state-publisher-gui.
 
-This is the format to define a link.
-- Start with \<link name="some_name"\> and end with \</link\> (on the same tab spacing)
-- \<link\> has the components \<visual\>, \<in<uri>model://mobile_bot_model_sdf</uri>ertia\>, and \<collision\>
-- \<visual\> has components \<geometry\> (for defining shape) and \<material\> (for defining color)
+**robot-state-publisher package:**  
+The robot-state-publisher listens to the /joint_states topic published to by the joint-state-publisher and the robot model description in the urdf file and calculates the transforms between all the joints in the robot. The transform data is then published to the /tf topic.  
+This is the transform data for transform from base_link to drivewhl_l_link.  
+![image](https://user-images.githubusercontent.com/102873080/235418943-5c8f095a-5a96-4e31-8d22-7e194483838c.png)  
 
-https://github.com/Juhyung-L/display_urdf_rviz_tutorial/blob/953928196113ce88a06cc991bceaef9e26573014/models/mobile_bot_model.urdf#L41-L50
-- Defining the rectangular body of the robot
+# Robot localization package
+In real life, calculating the odometry of the robot from a single sensor type is not ideal. For example, calculating the odometry from the wheel encoders only could lead to inaccurate information overtime due to wheel slip. Consider the following scenario: the robot bumps into a wall and the wheels lose contact from the ground for a brief period of time. If the wheels are spinning while in the air, the odometry from the encoders will say that the robot moved while in reality it did not. Because of this, odometry is usually calculated by fusing the data from two or more different types of sensors. The fusion is usually done thorugh a variation of the Kalman Filter, which is what the robot localization package uses. The package takes in odometry information from two different types of sensors and uses the Extended Kalman Filter (ekf) to calculate a more reliable odometry information. In this project, the odometry information from /demo/odom and /demo/imu was fused to publish /accel/filtered and /odometry/filtered.  
 
-https://github.com/Juhyung-L/display_urdf_rviz_tutorial/blob/953928196113ce88a06cc991bceaef9e26573014/models/mobile_bot_model.urdf#L59-L60
-- Defining the virtual link (doesn't exist in real life) that is directly under the center of the robot's body  
-- Since it is a virtual link, it has no components
+The following yaml file is added to the config file to provide the specifications.  
+<add code>
+There is a matrix of booleans associated with both /demo/odom and /demo/imu. This matrix represents which data from the two sources of odometry the robot localization package will use.  
+The matrix represents:  
+[x,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;y,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;z,  
+&nbsp;roll,&nbsp;&nbsp;&nbsp;pitch,&nbsp;&nbsp;yaw,  
+&nbsp;vx,&nbsp;&nbsp;&nbsp;&nbsp;vy,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vz,  
+&nbsp;vroll,&nbsp;vpitch,&nbsp;vyaw,  
+&nbsp;ax,&nbsp;&nbsp;&nbsp;&nbsp;ay,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;az]  
 
-https://github.com/Juhyung-L/display_urdf_rviz_tutorial/blob/953928196113ce88a06cc991bceaef9e26573014/models/mobile_bot_model.urdf#L62-L66
-- Defining the joint that connects the links robot_base and base_link
-- The joint type is "fixed" because robot_base and base_link do not move relative to each other (you can use static coordinate transform between them)
+So, the following data is being put into the filter  
+For /demo/odom
+- x, y, z, vyaw
 
-***So basically, a .urdf file is just defining links and connecting them with joints***  
+For /demo/imu
+- roll, pitch, yaw  
 
-The \<visual\> component is all you need to display the robot model on RViz because RViz is just a visualization tool. But if you want the robot to be simulated on Gazebo, you also need the \<inertia\> and \<collision\> components because Gazebo has a physics enigne (like a physics engine for a game) 
+Choosing which information to feed into the robot localization package requires information about the sensor readings. Ideally, you would fuse the best/least noisy measurements from each sensor to produce the best odometry. The official Nav2 tutorial suggests not fusing data that are derivatives of each other.
 
-https://github.com/Juhyung-L/display_urdf_rviz_tutorial/blob/953928196113ce88a06cc991bceaef9e26573014/models/mobile_bot_model.urdf#L17-L39
-- Defining the inertia of the polygons that make up the robot model using known equations
-- xacro is used like a function where the function name is "box_inertia" and the input parameters are "m w h d" (mass width, height, depth?)
+# final result
+Running rqt_graph should yielded the following graph  
+![image](https://user-images.githubusercontent.com/102873080/235422210-7bad34ce-967c-4ff5-ad52-9c2abace92ab.png)  
 
-https://github.com/Juhyung-L/display_urdf_rviz_tutorial/blob/953928196113ce88a06cc991bceaef9e26573014/models/mobile_bot_model.urdf#L56
-- xacro is used to define the inertia of the box-shaped body of the robot
-- It essentially copies and pastes the xacro defined above but with the input parameters defined
+Data published on /odometry/filtered topic:  
+![image](https://user-images.githubusercontent.com/102873080/235422571-793cd521-4f11-4b8c-bf9a-1eb99b718c1f.png)  
 
-https://github.com/Juhyung-L/display_urdf_rviz_tutorial/blob/953928196113ce88a06cc991bceaef9e26573014/models/mobile_bot_model.urdf#L51-L55
-- defining the collision box (almost like a hitbox) for the robot's body
+Data published on /accel/filtered topic:  
+![image](https://user-images.githubusercontent.com/102873080/235422480-22c3f82f-ffa5-455a-b078-c24c8a1f250a.png)  
 
-Also add the .rviz file into the rviz folder.  
-I don't know how you generate this file.  
 
-# Add dependencies
-Add these lines to the package.xml file.
-https://github.com/Juhyung-L/display_urdf_rviz_tutorial/blob/4124760ed5a443e342c3dd328c788c80ef7e4a41/package.xml#L12-L16
 
-# Make the launch file
-***cd ~/dev_ws/src/mobile_bot/launch***  
-***gedit display.launch.py***  
-- launch files in Python end with .launch.py
 
-The launch file is just a Python script to automatically set all the configurations and launch RViz
 
-# Building the package
-Add these lines to the CMakeLists.txt.  
-***cd ~/dev_ws***  
-***colcon build***  
 
-After the building, add these lines to the ~/.bashrc file.  
-***source ~/dev_ws/install/setup.bash***  
-- this will source the package everytime the terminal is opened
-- sourcing sets the appropriate environment variables
 
-# Displaying the robot in RViz
-Open a new terminal and type:  
-***ros2 launch mobile_bot display.launch.py***  
-This will bring up the RViz window and the joint_state_publisher_gui. 
-![image](https://user-images.githubusercontent.com/102873080/233770287-5e14b63d-02de-48c5-9315-f1f603e485d2.png)  
 
-The joint_state_publisher_gui is used to change the angle of the motor.  
-
-# Viewing the coordinate transform
-***ros2 run tf2_ros tf2_echo base_link front_caster***  
-Syntax is: ***ros2 run tf2_ros tf2_echo parent frame child frame***  
-![image](https://user-images.githubusercontent.com/102873080/233770431-a1d8117b-3d7f-49ca-aa4a-136443f1ad8f.png)  
-The "Translation" says that front_caster is located at point [0.14, 0, -0.09] in base_link's frame. The "Rotation", which is represented in a Quaternion (a way of numerically representing orientation), is all [0, 0, 0, 1], which means that base_link and front_caster have the same orientation. The transform from base_link to front_caster is a static transform because front_caster is fixed in the base_link's coordinate frame.  
-![image](https://user-images.githubusercontent.com/102873080/233770572-93484ec5-6720-4796-983f-daa346dae7c4.png)  
-The transformation makes sense looking at the the RViz model.
 
 
