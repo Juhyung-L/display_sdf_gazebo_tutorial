@@ -16,12 +16,14 @@ Note: RViz uses urdf files and Gazebo uses sdf files to describe a robot model. 
 
 # Explanation of the plugins and packges used
 **Differential drive plugin:**  
-This plugin simulates the encoders on the two wheels of the robot. It takes in geometry_msgs?Twist published on the /cmd_vel topic and publishes nav_msgs/Odometry on the /odom topic. So basically, it converts the robot's velocity into wheel encoder readings.
+This plugin simulates the odometry calculations for a two-wheeled robot. For a two-wheeled robot with wheel encoders, the odometry information (linear and angular velocity of the robot) would be calculated using the formula:  
+![image](https://user-images.githubusercontent.com/102873080/235415384-30234f02-da1a-4eac-aa85-c2c84b34ef9c.png)  
+The differential drive plugin does simulates this calculation by subscribing to the /demo/cmd_vel topic and publishing to the /demo/odom topic.
+The plugin can be added by adding the following lines to the urdf file.  
+
 
 **Imu plugin:**  
-This plugin is added to simulate an imu attached to the robot. It will be used in later tutorials along with wheel odometry information to get a smoothed odometry information of the robot.  
-The plugin is added by adding these lines to the sdf file.
-
+Imu sensors in real life measures the the velocity and acceleration of the robot using its accelerometer. The imu sensor plugin added to the robot simulates this by providing the 
 There is noise added to the imu data to best imitate imu measurements in real life.  
 
 **joint-state-publisher package:**  
