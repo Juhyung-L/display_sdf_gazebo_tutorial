@@ -22,7 +22,7 @@ The differential drive plugin does simulates this calculation by subscribing to 
 The exact message published on the /demo/odom topic is:  
 ![image](https://user-images.githubusercontent.com/102873080/235417061-fcad4831-3ad2-43b5-9883-e5cb1c092cd2.png)  
 The plugin can be added by adding the following lines to the urdf file.  
-<add code>
+https://github.com/Juhyung-L/set_up_odometry_gazebo/blob/f9440aa32a401a050f4bbab892a4a0c174fe542e/models/mobile_bot_model.urdf#L216-L256
 Note that /<publish_wheel_tf> is set to false. The code snippet provided by the official Nav2 tutorial has this set to true. This will publish the base_link to wheel transform to the tf2 topic. However, the robot state publisher already provides that information. So, setting the option to true will have two nodes (differential drive plugin and robot_state_publisher package) publishing the same information to the /tf topic, which will result in an warning saying that the data from one of the two sources will be ignored.  
 
 **Imu plugin:**  
@@ -33,7 +33,8 @@ The exact message published on the /demo/imu topic:
 - There is noise added to the data to best imitate imu measurements in real life.
 
 The plugin can be added by adding the following lines to the urdf file.
-<add code>
+https://github.com/Juhyung-L/set_up_odometry_gazebo/blob/f9440aa32a401a050f4bbab892a4a0c174fe542e/models/mobile_bot_model.urdf#L147-L214  
+Note that the plugin requires it to be connected to a /<link/> since an imu sensor is a physical device with mass and dimensions in real life.
 
 **joint-state-publisher package:**  
 The joint-state-publisher publishes the state (position and velocity) of all the **NON-FIXED** joints in a robot model provided by a urdf file. The information is published to the /joint_state topic.  
@@ -49,7 +50,7 @@ This is the transform data for transform from base_link to drivewhl_l_link.
 In real life, calculating the odometry of the robot from a single sensor type is not ideal. For example, calculating the odometry from the wheel encoders only could lead to inaccurate information overtime due to wheel slip. Consider the following scenario: the robot bumps into a wall and the wheels lose contact from the ground for a brief period of time. If the wheels are spinning while in the air, the odometry from the encoders will say that the robot moved while in reality it did not. Because of this, odometry is usually calculated by fusing the data from two or more different types of sensors. The fusion is usually done thorugh a variation of the Kalman Filter, which is what the robot localization package uses. The package takes in odometry information from two different types of sensors and uses the Extended Kalman Filter (ekf) to calculate a more reliable odometry information. In this project, the odometry information from /demo/odom and /demo/imu was fused to publish /accel/filtered and /odometry/filtered.  
 
 The following yaml file is added to the config file to provide the specifications.  
-<add code>
+https://github.com/Juhyung-L/set_up_odometry_gazebo/blob/f9440aa32a401a050f4bbab892a4a0c174fe542e/config/ekf.yaml#L1-L47
 There is a matrix of booleans associated with both /demo/odom and /demo/imu. This matrix represents which data from the two sources of odometry the robot localization package will use.  
 The matrix represents:  
 [x,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;y,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;z,  
